@@ -21,7 +21,7 @@ const TYPES = {
   heartbeat: 8,
 };
 
-function encodeFrame(frame: OutgoingFrame): Uint8Array {
+export function encodeFrame(frame: OutgoingFrame): Uint8Array {
   let payload: Uint8Array;
   switch (frame.type) {
     case "method":

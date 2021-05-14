@@ -1,5 +1,5 @@
 import { AmqpChannel } from "./amqp_channel.ts";
-import type { AmqpSocket } from "./amqp_socket.ts";
+import { AmqpSocket } from "./amqp_socket.ts";
 import type {
   ConnectionClose,
   ConnectionStart,
@@ -33,18 +33,6 @@ const clientProperties = Object.freeze({
   information: "https://deno.land/x/amqp/",
 });
 
-function splitArray(arr: Uint8Array, size: number): Uint8Array[] {
-  const chunks: Uint8Array[] = [];
-  let index = 0;
-
-  while (index < arr.length) {
-    chunks.push(arr.slice(index, size + index));
-    index += size;
-  }
-
-  return chunks;
-}
-
 function tune(ours: number | undefined, theirs: number) {
   if (ours === undefined) {
     return theirs;
@@ -68,10 +56,12 @@ export class AmqpConnection implements AmqpConnection {
   #closedPromise: ResolvablePromise<void>;
   #options: AmqpConnectionOptions;
   #socket: AmqpSocket;
+  #conn: Deno.Conn;
 
-  constructor(socket: AmqpSocket, options: AmqpConnectionOptions) {
+  constructor(conn: Deno.Conn, options: AmqpConnectionOptions) {
+    this.#conn = conn;
     this.#options = options;
-    this.#socket = socket;
+    this.#socket = new AmqpSocket(conn);
     this.#protocol = new AmqpProtocol(createAmqpMux(this.#socket));
     this.#username = options.username;
     this.#password = options.password;
@@ -179,9 +169,9 @@ export class AmqpConnection implements AmqpConnection {
 
   /**
    * Returns a promise that is settled when this connection is closed.
-   * 
+   *
    * If the connection is gracefully closed, the promise will _resolve_.
-   * 
+   *
    * If the connection is unexpectedly closed by the server or from an error, the promise
    * will _reject_ with the reason.
    */
