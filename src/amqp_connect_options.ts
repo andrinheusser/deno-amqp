@@ -63,7 +63,7 @@ export interface AmqpConnectParameters {
 }
 
 function parseUrl(value: string): AmqpConnectOptions {
-  if (!value.startsWith("amqp:")) {
+  if (!value.startsWith("amqp")) {
     throw new Error("Unsupported protocol");
   }
 
