@@ -86,14 +86,14 @@ function parseUrl(value: string): AmqpConnectOptions {
     port: parseInt(url.port || "5672"),
     username: url.username || "guest",
     password: url.password || "guest",
-    vhost: url.pathname,
+    vhost: url.pathname.startsWith("/") ? url.pathname.slice(1) : url.pathname,
     heartbeatInterval: heartbeat,
     frameMax: frameMax,
   };
 }
 
 export function parseOptions(
-  optionsOrString: string | AmqpConnectOptions = {},
+  optionsOrString: string | AmqpConnectOptions = {}
 ): AmqpConnectParameters {
   const {
     hostname = "localhost",
