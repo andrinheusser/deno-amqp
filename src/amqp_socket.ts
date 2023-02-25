@@ -4,6 +4,7 @@ import type { IncomingFrame, OutgoingFrame } from "./amqp_frame.ts";
 
 export interface AmqpSocketWriter {
   write(frame: OutgoingFrame): Promise<void>;
+  writeAll(frames: Array<OutgoingFrame>): Promise<void>;
 }
 
 export interface AmqpSocketReader {
@@ -69,6 +70,16 @@ function splitArray(arr: Uint8Array, size: number): Uint8Array[] {
   }
 
   return chunks;
+}
+function joinUint8Arrays(arrays: Array<Uint8Array>) {
+  const length = arrays.reduce((a, b) => a + b.length, 0);
+  const result = new Uint8Array(length);
+  let offset = 0;
+  for (const array of arrays) {
+    result.set(array, offset);
+    offset += array.length;
+  }
+  return result;
 }
 
 interface AmqpSocketOptions {
@@ -145,6 +156,23 @@ export class AmqpSocket
     }
 
     await this.#conn.write(encodeFrame(frame));
+  }
+  async writeAll(frames: Array<OutgoingFrame>): Promise<void> {
+
+    this.#resetSendTimer();
+    let buf = new Uint8Array();
+    for (const frame of frames) {
+      if (frame.type === "content") {
+        const chunks = this.#frameMax > 8 && frame.payload.length > this.#frameMax ? splitArray(
+          frame.payload, this.#frameMax - 8).map((chunk) => encodeFrame({ type: "content", channel: frame.channel, payload: chunk }))
+          : [encodeFrame(frame)];
+        buf = joinUint8Arrays([buf, ...chunks]);
+      } else {
+        buf = joinUint8Arrays([buf, encodeFrame(frame)]);
+      }
+    }
+    await this.#conn.write(buf)
+
   }
 
   #clear = () => {
