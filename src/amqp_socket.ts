@@ -1,7 +1,7 @@
 import { encodeHeader, encodeMethod } from "./amqp_codec.ts";
 import { AmqpFrameReader } from "./amqp_frame_reader.ts";
 import type { IncomingFrame, OutgoingFrame } from "./amqp_frame.ts";
-import { BufWriter } from "../deps.ts";
+import { writeAll } from "https://deno.land/std@0.178.0/streams/write_all.ts";
 
 export interface AmqpSocketWriter {
   write(frame: OutgoingFrame): Promise<void>;
@@ -89,16 +89,17 @@ interface AmqpSocketOptions {
   frameMax?: number;
 }
 
+
 export class AmqpSocket
   implements AmqpSocketWriter, AmqpSocketReader, AmqpSocketCloser {
-  #conn: Deno.Reader & BufWriter & Deno.Closer;
+  #conn: Deno.Conn;
   #reader: AmqpFrameReader;
   #sendTimer: number | null = null;
   #sendTimeout = 0;
   #readTimeout = 0;
   #frameMax = -1;
 
-  constructor(conn: Deno.Reader & BufWriter & Deno.Closer) {
+  constructor(conn: Deno.Conn) {
     this.#conn = conn;
     this.#reader = new AmqpFrameReader(conn);
   }
@@ -131,10 +132,10 @@ export class AmqpSocket
   }
 
   async start() {
-    await this.#conn.write(
+    /*await this.#conn.write(
       new Uint8Array([...new TextEncoder().encode("AMQP"), 0, 0, 9, 1]),
-    );
-    await this.#conn.flush()
+    );*/
+    await writeAll(this.#conn, new Uint8Array([...new TextEncoder().encode("AMQP"), 0, 0, 9, 1]))
   }
 
   async write(frame: OutgoingFrame): Promise<void> {
@@ -153,13 +154,11 @@ export class AmqpSocket
           }));
         }),
       );
-      await this.#conn.flush();
 
       return;
     }
 
-    await this.#conn.write(encodeFrame(frame));
-    await this.#conn.flush();
+    await writeAll(this.#conn, encodeFrame(frame));
   }
   async writeAll(frames: Array<OutgoingFrame>): Promise<void> {
 
@@ -175,8 +174,7 @@ export class AmqpSocket
         buf = joinUint8Arrays([buf, encodeFrame(frame)]);
       }
     }
-    await this.#conn.write(buf)
-    await this.#conn.flush();
+    await writeAll(this.#conn, buf)
 
   }
 

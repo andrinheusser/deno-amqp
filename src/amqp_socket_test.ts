@@ -3,16 +3,25 @@ import { arrayOf, assertEquals, assertRejects, test } from "./testing.ts";
 import { mock } from "./mock.ts";
 import { FrameError } from "./frame_error.ts";
 import { createResolvable } from "./resolvable.ts";
+import { BufWriter } from "../deps.ts";
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function createConn() {
-  return mock.obj<Deno.Reader & Deno.Writer & Deno.Closer>({
+  return mock.obj<Deno.Conn>({
     read: mock.fn(),
-    write: mock.fn(async () => {}),
-    close: mock.fn(() => {}),
+    write: mock.fn(async () => { }),
+    close: mock.fn(() => { }),
+    closeWrite: mock.fn(async () => { }),
+    localAddr: { hostname: 'localhost', transport: 'tcp', port: 0 },
+    ref: mock.fn(() => { }),
+    unref: mock.fn(() => { }),
+    remoteAddr: { hostname: 'rabbit', transport: 'tcp', port: 0 },
+    rid: 0,
+    readable: new ReadableStream,
+    writable: new WritableStream
   });
 }
 
@@ -324,7 +333,7 @@ test("read - closes connection on EOF", async () => {
 
   conn.read.mock.setImplementation(createEofReader());
 
-  await socket.read().catch((_e) => {});
+  await socket.read().catch((_e) => { });
 
   assertEquals(conn.close.mock.calls.length, 1);
 });
@@ -337,7 +346,7 @@ test("read - closes connection on EOF after heartbeat tuning", async () => {
 
   socket.tune({ readTimeout: 10 });
 
-  await socket.read().catch((_e) => {});
+  await socket.read().catch((_e) => { });
 
   assertEquals(conn.close.mock.calls.length, 1);
 });
@@ -438,7 +447,7 @@ test("heartbeat - closes connection after time out", async () => {
 
   socket.tune({ readTimeout: 10, frameMax: 0 });
 
-  await socket.read().catch((_e) => {});
+  await socket.read().catch((_e) => { });
 
   assertEquals(conn.close.mock.calls.length, 1);
 });
