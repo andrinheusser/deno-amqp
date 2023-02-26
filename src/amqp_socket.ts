@@ -37,16 +37,20 @@ function encodeFrame(frame: OutgoingFrame): Uint8Array {
       break;
   }
 
-  const data = new Uint8Array(7 + payload.length + 1);
+  const data = new Uint8Array(7 + payload.byteLength + 1);
   const view = new DataView(data.buffer);
   const type = TYPES[frame.type];
 
   view.setUint8(0, type);
   view.setUint16(1, frame.channel);
 
-  view.setUint32(3, payload.length);
+  view.setUint32(3, payload.byteLength);
   data.set(payload, 7);
-  view.setUint8(7 + payload.length, 206);
+  view.setUint8(7 + payload.byteLength, 206);
+  if (data[7 + payload.byteLength] !== 206) {
+    console.log('sending invalid frame end')
+    console.log({ frame, data });
+  }
   return data;
 }
 
