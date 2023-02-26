@@ -1,6 +1,7 @@
 import { encodeHeader, encodeMethod } from "./amqp_codec.ts";
 import { AmqpFrameReader } from "./amqp_frame_reader.ts";
 import type { IncomingFrame, OutgoingFrame } from "./amqp_frame.ts";
+import { BufWriter } from "../deps.ts";
 
 export interface AmqpSocketWriter {
   write(frame: OutgoingFrame): Promise<void>;
@@ -90,14 +91,14 @@ interface AmqpSocketOptions {
 
 export class AmqpSocket
   implements AmqpSocketWriter, AmqpSocketReader, AmqpSocketCloser {
-  #conn: Deno.Reader & Deno.Writer & Deno.Closer;
+  #conn: Deno.Reader & BufWriter & Deno.Closer;
   #reader: AmqpFrameReader;
   #sendTimer: number | null = null;
   #sendTimeout = 0;
   #readTimeout = 0;
   #frameMax = -1;
 
-  constructor(conn: Deno.Reader & Deno.Writer & Deno.Closer) {
+  constructor(conn: Deno.Reader & BufWriter & Deno.Closer) {
     this.#conn = conn;
     this.#reader = new AmqpFrameReader(conn);
   }
@@ -133,6 +134,7 @@ export class AmqpSocket
     await this.#conn.write(
       new Uint8Array([...new TextEncoder().encode("AMQP"), 0, 0, 9, 1]),
     );
+    await this.#conn.flush()
   }
 
   async write(frame: OutgoingFrame): Promise<void> {
@@ -151,11 +153,13 @@ export class AmqpSocket
           }));
         }),
       );
+      await this.#conn.flush();
 
       return;
     }
 
     await this.#conn.write(encodeFrame(frame));
+    await this.#conn.flush();
   }
   async writeAll(frames: Array<OutgoingFrame>): Promise<void> {
 
@@ -172,6 +176,7 @@ export class AmqpSocket
       }
     }
     await this.#conn.write(buf)
+    await this.#conn.flush();
 
   }
 
